@@ -27,6 +27,7 @@ app.get("/", (req, res) => {
 const socketIO = require("socket.io");
 const http = require("http");
 const { findById } = require("./mongoDB/UserInfo");
+const Group = require("./mongoDB/Group");
 const server = http.createServer(app);
 
 const io = socketIO(server, {
@@ -34,6 +35,26 @@ const io = socketIO(server, {
     origin: "http://localhost:3000",
   },
 });
+// const jwt = require('jsonwebtoken');
+
+// Replace this with your actual secret key or read it from an environment variable
+// const SECRET_KEY = '1234hello';
+
+// const authenticateUser = (req, res, next) => {
+//   const token = req.headers.authorization;
+
+//   if (!token) {
+//     return res.status(401).json({ error: 'Unauthorized' });
+//   }
+
+//   try {
+//     const decodedToken = jwt.verify(token, SECRET_KEY);
+//     req.user = decodedToken; // Populate req.user with the decoded token payload
+//     next();
+//   } catch (err) {
+//     return res.status(403).json({ error: 'Invalid token' });
+//   }
+// };
 
 let onlineUsers = [];
 let connectedPeer = [];
@@ -218,6 +239,30 @@ app.get("/messagesCombo/:id", async (req, res) => {
   } catch (err) {
     console.log(err);
   }
+});
+
+app.post("/groups", async (req, res) => {
+  const { groupName, password } = req.body;
+
+  if (!groupName || !password) {
+    return res.status(400).json({ error: "Missing required fields" });
+  }
+
+  const newGroup = new Group({
+    groupName,
+    password,
+    createdBy: req.params.id, // Assuming req.user contains user information
+  });
+
+  await newGroup
+    .save()
+    .then((group) => {
+      res.status(201).json(group); // Return the created group in the response
+    })
+    .catch((err) => {
+      console.error("Error creating group:", err);
+      res.status(500).json({ error: "Failed to create group" });
+    });
 });
 
 //heroku
