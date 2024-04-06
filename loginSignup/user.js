@@ -37,10 +37,10 @@ route.post("/signup", async (req, res) => {
     const findEmail = await UserInfoModel.findOne({ email });
     const findUsername = await UserInfoModel.findOne({ username });
     if (findEmail) {
-      return res.status(422).json({ message: "email already exists" });
+      return res.status(422).json({ message: "Email already exists" });
     }
     if (findUsername) {
-      return res.status(422).json({ message: "username already exists" });
+      return res.status(422).json({ message: "Username already exists" });
     }
     if (password.length <= 8) {
       return res

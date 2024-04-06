@@ -174,6 +174,17 @@ io.on("connection", (socket) => {
     }
   });
 
+  socket.on("hangup-call", ({receiverId})=>{
+     console.log("hitted hangup", receiverId)
+     const socketIdReceiver = getUser(receiverId);
+    if (socketIdReceiver) {
+      // Send the message to the receiver's socket ID
+      io.to(socketIdReceiver.socketId).emit("hangupcallfunction", {
+        hangup: "hangup"
+      });
+    }
+  })
+
   //disconnect
   socket.on("disconnect", () => {
     removeUser(socket.id);
