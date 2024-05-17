@@ -42,7 +42,7 @@ route.post("/signup", async (req, res) => {
     if (findUsername) {
       return res.status(422).json({ message: "Username already exists" });
     }
-    if (password.length <= 8) {
+    if (password.length < 8) {
       return res
         .status(422)
         .json({ message: "Your password must contains at least 8 letter" });
