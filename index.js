@@ -6,6 +6,12 @@ const cors = require("cors");
 const userRoute = require("./loginSignup/user");
 require("dotenv").config();
 
+const crypto = require('crypto');
+//for message
+const algorithm = 'aes-256-cbc';
+const key = Buffer.from(process.env.ENCRYPTION_KEY, 'hex'); 
+const iv = crypto.randomBytes(16); 
+
 require("./mongoDB/Connection");
 const path = require("path");
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -82,6 +88,8 @@ io.on("connection", (socket) => {
     console.log("online user is ", onlineUsers);
   });
 
+
+
   socket.on("message", ({ senderId, receiverId, notificationMsg }) => {
     const receiver = getUser(receiverId);
     if (receiver) {
@@ -94,7 +102,7 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("textMessage", ({ sender, receiver, message, senderPeerId }) => {
+  socket.on("textMessage", ({ sender, receiver, message, senderPeerId, callType }) => {
     const socketIdReceiver = getUser(receiver);
     if (socketIdReceiver) {
       console.log("thisis", message, sender);
@@ -103,6 +111,7 @@ io.on("connection", (socket) => {
         receiver,
         message,
         senderPeerId,
+        callType,
       });
     }
     // io.to(socketIdReceiver).emit("textMessageFromBack", data);
@@ -459,6 +468,71 @@ app.get("/groups", authenticate, async (req, res) => {
   } catch (error) {
     console.error("Error fetching groups:", error);
     res.status(500).json({ error: "Failed to fetch groups" });
+  }
+});
+
+// Encryption function
+function encrypt(text) {
+  console.log('non encrypted text ', text)
+  let cipher = crypto.createCipheriv(algorithm, Buffer.from(key), iv);
+  let encrypted = cipher.update(text);
+  encrypted = Buffer.concat([encrypted, cipher.final()]);
+  const encryptedText = iv.toString('hex') + ':' + encrypted.toString('hex');
+  console.log('encrypted text: ', encryptedText)
+  return encryptedText;
+}
+
+//messages
+app.post('/messages', async (req, res) => {
+  try {
+    const { conversationId, senderId, msg } = req.body;
+    console.log('posting msg ', msg)
+    const encryptedMsg = encrypt(msg);
+    const newMessage = new Message({
+      conversationId,
+      senderId,
+      msg: encryptedMsg
+    });
+
+    await newMessage.save();
+    console.log(newMessage, 'newMessage');
+    res.status(200).json({ message: 'Message saved successfully!' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+
+//get message of conversation of user
+// Decryption function
+function decrypt(text) {
+  let textParts = text.split(':');
+  let iv = Buffer.from(textParts.shift(), 'hex');
+  let encryptedText = Buffer.from(textParts.join(':'), 'hex');
+  let decipher = crypto.createDecipheriv(algorithm, Buffer.from(key), iv);
+  let decrypted = decipher.update(encryptedText);
+  decrypted = Buffer.concat([decrypted, decipher.final()]);
+  return decrypted.toString();
+}
+
+// Get messages of a conversation of a user
+app.get("/messagesCombo/:id", async (req, res) => {
+  try {
+    const id = req.params.id;
+    const messages = await Message.find({ conversationId: id });
+    console.log(messages, 'messages');
+    const decryptedMessages = messages.map(message => {
+      return {
+        ...message._doc,
+        msg: decrypt(message.msg)
+      };
+    });
+
+    res.status(200).json({ result: decryptedMessages });
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
